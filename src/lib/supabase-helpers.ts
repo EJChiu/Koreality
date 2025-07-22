@@ -15,7 +15,7 @@ interface Idol {
   position?: string[];
   profile_image?: string;
   banner_image?: string;
-  social_media?: any;
+  social_media?: unknown;
   fan_color?: string;
   official_fan_club?: string;
   is_active: boolean;
@@ -33,7 +33,7 @@ interface Locations {
   phone?: string;
   website?: string;
   instagram?: string;
-  opening_hours?: any;
+  opening_hours?: unknown;
   images?: string[];
   amenities?: string[];
   rating?: number;
@@ -80,7 +80,7 @@ interface MapLocation {
   phone?: string;
   website?: string;
   instagram?: string;
-  opening_hours?: any;
+  opening_hours?: unknown;
   rating?: number;
   upcoming_events?: Array<{
     id?: string;
@@ -92,6 +92,25 @@ interface MapLocation {
 }
 
 // ==================== 修正後的輔助函數 ====================
+
+// 🔄 新增：將顯示名稱轉換為 id 的映射函數
+function getLocationTypeId(displayName: string): string {
+  const displayToIdMap: Record<string, string> = {
+    生咖: 'cafe',
+    電影: 'movie',
+    快閃店: 'popup',
+    拍貼機: 'photobooth',
+    廣告看板: 'billboard',
+    星旅程: 'checkin',
+    演唱會: 'concert',
+    公車應援: 'bus_ad',
+    隨機舞蹈: 'dance_challenge',
+    簽售: 'fansign',
+    其他: 'other',
+  };
+
+  return displayToIdMap[displayName] || 'other';
+}
 
 // 根據類型獲取圖標 - 使用正確的 categories 值
 function getLocationIcon(typeName: string): string {
@@ -133,32 +152,46 @@ function getMarkerColorByType(typeName: string): string {
 
 // 修正後的 formatLocationForMap 函數
 function formatLocationForMap(
-  location: any,
-  events: any[] = [],
+  location: unknown,
+  events: unknown[] = [],
   typeName?: string
 ): MapLocation {
   // 使用傳入的 typeName 或預設為 'other'
   const finalTypeName = typeName || 'other';
 
-  console.log(`🎯 格式化地點 "${location.name}" 使用類型: ${finalTypeName}`);
+  console.log(
+    `🎯 格式化地點 "${
+      (location as { name: string }).name
+    }" 使用類型: ${finalTypeName}`
+  );
 
   return {
-    id: location.id,
-    name: location.name,
-    address: location.address,
-    latitude: parseFloat(location.latitude),
-    longitude: parseFloat(location.longitude),
-    description: location.description || '',
+    id: (location as { id: string }).id,
+    name: (location as { name: string }).name,
+    address: (location as { address: string }).address,
+    latitude: parseFloat((location as { latitude: string }).latitude),
+    longitude: parseFloat((location as { longitude: string }).longitude),
+    description: (location as { description?: string }).description || '',
     markerColor: getMarkerColorByType(finalTypeName),
     typeName: finalTypeName,
     typeIcon: getLocationIcon(finalTypeName),
     location_type: finalTypeName,
-    phone: location.phone,
-    website: location.website,
-    instagram: location.instagram,
-    opening_hours: location.opening_hours,
-    rating: location.rating,
-    upcoming_events: events.map((event) => ({
+    phone: (location as { phone?: string }).phone,
+    website: (location as { website?: string }).website,
+    instagram: (location as { instagram?: string }).instagram,
+    opening_hours: (location as { opening_hours?: unknown }).opening_hours,
+    rating: (location as { rating?: number }).rating,
+    upcoming_events: (
+      events as Array<{
+        id: string;
+        title: string;
+        idol?: { stage_name?: string; name?: string };
+        start_date?: string;
+        start_time?: string;
+        end_date?: string;
+        end_time?: string;
+      }>
+    ).map((event) => ({
       id: event.id,
       title: event.title,
       idol_name: event.idol?.stage_name || event.idol?.name || 'TBA',
@@ -180,7 +213,7 @@ function formatLocationForMap(
 
 // ==================== 修正後的地圖函數 ====================
 
-// 獲取所有地點（使用分步查詢）
+// 獲取所有地點（簡化版本 - 直接使用 location_type 欄位）
 export async function getLocationsForMap(): Promise<MapLocation[]> {
   try {
     console.log('🗺️ 開始獲取所有地點資料...');
@@ -203,57 +236,18 @@ export async function getLocationsForMap(): Promise<MapLocation[]> {
       return [];
     }
 
-    // 步驟2: 獲取地點類型關聯
-    const locationIds = locations.map((loc) => loc.id);
-    const { data: typeJoins, error: typeJoinsError } = await supabase
-      .from('location_type_join')
-      .select('location_id, category_id')
-      .in('location_id', locationIds);
-
-    if (typeJoinsError) {
-      console.error('Error fetching location type joins:', typeJoinsError);
-    }
-
-    console.log('🔗 地點類型關聯:', typeJoins);
-
-    // 步驟3: 獲取所有類型資訊
-    const categoryIds = typeJoins?.map((join) => join.category_id) || [];
-    const { data: locationTypes, error: locationTypesError } = await supabase
-      .from('location_types')
-      .select('id, categories, display_categories')
-      .in('id', categoryIds);
-
-    if (locationTypesError) {
-      console.error('Error fetching location types:', locationTypesError);
-    }
-
-    console.log('📋 地點類型資料:', locationTypes);
-
-    // 步驟4: 組合資料
+    // 步驟2: 直接格式化地點資料（不需要查詢關聯表）
     const formattedLocations = locations.map((location) => {
-      // 找到這個地點的類型關聯
-      const typeJoin = typeJoins?.find(
-        (join) => join.location_id === location.id
-      );
-
-      // 找到對應的類型資訊
-      let typeName = 'other';
-      if (typeJoin && locationTypes) {
-        const locationTypeData = locationTypes.find(
-          (type) => type.id === typeJoin.category_id
-        );
-        if (locationTypeData) {
-          typeName = locationTypeData.categories || 'other';
-        }
-      }
+      // 直接使用 location_type 欄位
+      const typeId = getLocationTypeId(location.location_type || '其他');
 
       console.log(`🏢 地點 "${location.name}" 類型解析:`, {
         locationId: location.id,
-        categoryId: typeJoin?.category_id,
-        typeName: typeName,
+        displayType: location.location_type,
+        typeId: typeId,
       });
 
-      return formatLocationForMap(location, [], typeName);
+      return formatLocationForMap(location, [], typeId);
     });
 
     console.log('🎯 格式化後的地點資料:', formattedLocations);
@@ -264,7 +258,7 @@ export async function getLocationsForMap(): Promise<MapLocation[]> {
   }
 }
 
-// 根據偶像 ID 獲取相關地點和活動（使用分步查詢）
+// 根據偶像 ID 獲取相關地點和活動（簡化版本）
 export async function getLocationsByIdolId(
   idolId: string
 ): Promise<MapLocation[]> {
@@ -289,7 +283,6 @@ export async function getLocationsByIdolId(
       `
       )
       .eq('idol_id', idolId);
-    // 暫時不篩選 status，看看有什麼資料
 
     if (eventsError) {
       console.error('Error fetching events:', eventsError);
@@ -325,32 +318,7 @@ export async function getLocationsByIdolId(
       return [];
     }
 
-    // 步驟 3: 獲取地點類型關聯
-    const { data: typeJoins, error: typeJoinsError } = await supabase
-      .from('location_type_join')
-      .select('location_id, category_id')
-      .in('location_id', locationIds);
-
-    if (typeJoinsError) {
-      console.error('Error fetching location type joins:', typeJoinsError);
-    }
-
-    console.log('🔗 地點類型關聯:', typeJoins);
-
-    // 步驟 4: 獲取所有類型資訊
-    const categoryIds = typeJoins?.map((join) => join.category_id) || [];
-    const { data: locationTypes, error: locationTypesError } = await supabase
-      .from('location_types')
-      .select('id, categories, display_categories')
-      .in('id', categoryIds);
-
-    if (locationTypesError) {
-      console.error('Error fetching location types:', locationTypesError);
-    }
-
-    console.log('📋 地點類型資料:', locationTypes);
-
-    // 步驟 5: 獲取偶像資訊
+    // 步驟 3: 獲取偶像資訊
     const { data: idol, error: idolError } = await supabase
       .from('idols')
       .select('id, name, stage_name, display_name')
@@ -363,32 +331,17 @@ export async function getLocationsByIdolId(
 
     console.log('👤 偶像資訊:', idol);
 
-    // 步驟 6: 格式化地點資料
+    // 步驟 4: 格式化地點資料 - 🔄 直接使用 location_type 欄位
     const formattedLocations = locations.map((location) => {
       const locationEvents = events.filter(
         (event) => event.location_id === location.id
       );
-
-      // 找到這個地點的類型關聯
-      const typeJoin = typeJoins?.find(
-        (join) => join.location_id === location.id
-      );
-
-      // 找到對應的類型資訊
-      let typeName = 'other';
-      if (typeJoin && locationTypes) {
-        const locationTypeData = locationTypes.find(
-          (type) => type.id === typeJoin.category_id
-        );
-        if (locationTypeData) {
-          typeName = locationTypeData.categories || 'other';
-        }
-      }
+      const typeId = getLocationTypeId(location.location_type || '其他');
 
       console.log(`🏢 偶像地點 "${location.name}" 類型解析:`, {
         locationId: location.id,
-        categoryId: typeJoin?.category_id,
-        typeName: typeName,
+        displayType: location.location_type,
+        typeId: typeId,
       });
 
       return formatLocationForMap(
@@ -403,7 +356,7 @@ export async function getLocationsByIdolId(
           end_time: event.end_time,
           status: event.status,
         })),
-        typeName
+        typeId
       );
     });
 
@@ -415,7 +368,7 @@ export async function getLocationsByIdolId(
   }
 }
 
-// 根據團體 ID 獲取相關地點（使用分步查詢）
+// 根據團體 ID 獲取相關地點（簡化版本）
 export async function getLocationsByBandId(
   bandId: string
 ): Promise<MapLocation[]> {
@@ -496,32 +449,7 @@ export async function getLocationsByBandId(
       return [];
     }
 
-    // 步驟 4: 獲取地點類型關聯
-    const { data: typeJoins, error: typeJoinsError } = await supabase
-      .from('location_type_join')
-      .select('location_id, category_id')
-      .in('location_id', locationIds);
-
-    if (typeJoinsError) {
-      console.error('Error fetching location type joins:', typeJoinsError);
-    }
-
-    console.log('🔗 地點類型關聯:', typeJoins);
-
-    // 步驟 5: 獲取所有類型資訊
-    const categoryIds = typeJoins?.map((join) => join.category_id) || [];
-    const { data: locationTypes, error: locationTypesError } = await supabase
-      .from('location_types')
-      .select('id, categories, display_categories')
-      .in('id', categoryIds);
-
-    if (locationTypesError) {
-      console.error('Error fetching location types:', locationTypesError);
-    }
-
-    console.log('📋 地點類型資料:', locationTypes);
-
-    // 步驟 6: 獲取團體資訊
+    // 步驟 4: 獲取團體資訊
     const { data: band, error: bandError } = await supabase
       .from('bands')
       .select('id, name, display_name')
@@ -534,32 +462,17 @@ export async function getLocationsByBandId(
 
     console.log('🎵 團體資訊:', band);
 
-    // 步驟 7: 格式化地點資料
+    // 步驟 5: 格式化地點資料 - 🔄 直接使用 location_type 欄位
     const formattedLocations = locations.map((location) => {
       const locationEvents = events.filter(
         (event) => event.location_id === location.id
       );
-
-      // 找到這個地點的類型關聯
-      const typeJoin = typeJoins?.find(
-        (join) => join.location_id === location.id
-      );
-
-      // 找到對應的類型資訊
-      let typeName = 'other';
-      if (typeJoin && locationTypes) {
-        const locationTypeData = locationTypes.find(
-          (type) => type.id === typeJoin.category_id
-        );
-        if (locationTypeData) {
-          typeName = locationTypeData.categories || 'other';
-        }
-      }
+      const typeId = getLocationTypeId(location.location_type || '其他');
 
       console.log(`🏢 團體地點 "${location.name}" 類型解析:`, {
         locationId: location.id,
-        categoryId: typeJoin?.category_id,
-        typeName: typeName,
+        displayType: location.location_type,
+        typeId: typeId,
       });
 
       return formatLocationForMap(
@@ -583,7 +496,7 @@ export async function getLocationsByBandId(
             status: event.status,
           };
         }),
-        typeName
+        typeId
       );
     });
 
@@ -802,6 +715,7 @@ export async function getEventsByIdol(idolId: string) {
   }
 }
 
+// 🔄 修正 getLocationsWithEvents - 移除 location_type_join 查詢
 export async function getLocationsWithEvents() {
   try {
     const { data: locations, error: locationsError } = await supabase
@@ -823,22 +737,11 @@ export async function getLocationsWithEvents() {
       return [];
     }
 
-    const { data: typeJoins, error: typeError } = await supabase
-      .from('location_type_join')
-      .select('location_id, category_id');
-
-    if (typeError) {
-      console.error('Error fetching location types:', typeError);
-      return [];
-    }
-
+    // 🔄 不再查詢 location_type_join，直接使用 location_type 欄位
     const locationsWithTypes = locations?.map((location) => {
-      const typeJoin = typeJoins?.find((tj) => tj.location_id === location.id);
       return {
         ...location,
-        location_type_join: typeJoin
-          ? [{ category_id: typeJoin.category_id }]
-          : [{ category_id: '1' }],
+        location_type_join: [{ category_id: '1' }], // 保持相容性的假資料
       };
     });
 
