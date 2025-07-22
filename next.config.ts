@@ -2,12 +2,15 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   eslint: {
-    // 完全忽略 ESLint 錯誤
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // 完全忽略 TypeScript 錯誤
     ignoreBuildErrors: true,
+  },
+  // 禁用靜態導出，使用服務器渲染
+  trailingSlash: true,
+  images: {
+    unoptimized: true,
   },
 };
 
