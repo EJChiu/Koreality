@@ -1,0 +1,14 @@
+'use client'; import dynamic from 'next/dynamic'; import { ComponentProps } from
+'react'; // 動態導入 GoogleMap，禁用 SSR const GoogleMap = dynamic(() =>
+import('./GoogleMap'), { ssr: false, loading: () => (
+<div
+  className="w-full h-80 bg-gray-200 animate-pulse flex items-center justify-center"
+>
+  <p className="text-gray-500">載入地圖中...</p>
+</div>
+), }); type GoogleMapProps = ComponentProps<typeof GoogleMap
+  >; const ClientOnlyGoogleMap: React.FC<GoogleMapProps>
+    = (props) => { return <GoogleMap {...props} />; }; export default
+    ClientOnlyGoogleMap;</GoogleMapProps
+  ></typeof
+>

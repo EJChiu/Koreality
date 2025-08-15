@@ -117,78 +117,77 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   useEffect(() => {
     if (!mapInstanceRef.current || !window.google) return;
 
-    console.log('Updating markers...', {
-      locations: locations.length,
-      selectedIdol,
-    });
-
     // Clear existing markers
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
 
     // Filter locations based on selected idol
     const filteredLocations = selectedIdol
-      ? locations.filter((location) =>
-          location.upcoming_events?.some((event) =>
+      ? locations.filter((location) => {
+          if (
+            !location.upcoming_events ||
+            location.upcoming_events.length === 0
+          ) {
+            console.log('❌ 沒有 upcoming_events');
+            return false;
+          }
+
+          return location.upcoming_events?.some((event) =>
             event.idol_name.toLowerCase().includes(selectedIdol.toLowerCase())
-          )
-        )
+          );
+        })
       : locations;
 
-    console.log('Filtered locations:', filteredLocations.length);
-
     // Create new markers
-    filteredLocations.forEach((location) => {
-      console.log(`🎯 GoogleMap 創建標記 "${location.name}":`, {
-        markerColor: location.markerColor,
-        typeIcon: location.typeIcon,
-        typeName: location.typeName,
-      });
-      const markerColor = location.markerColor || '#FF69B4'; // 使用傳入的顏色或預設粉紅色
-      const icon = location.typeIcon || '📍';
+    filteredLocations.forEach(
+      (location) => {
+        console.log('🎯 開始處理地點:', location.name);
+        const markerColor = location.markerColor || '#FF69B4'; // 使用傳入的顏色或預設粉紅色
+        const icon = location.typeIcon || '📍';
 
-      console.log(`🎯 使用的顏色: ${markerColor}, 圖標: ${icon}`);
-
-      const marker = new window.google.maps.Marker({
-        position: { lat: location.latitude, lng: location.longitude },
-        map: mapInstanceRef.current,
-        title: location.name,
-        icon: {
-          url:
-            'data:image/svg+xml;charset=UTF-8,' +
-            encodeURIComponent(`
+        const marker = new window.google.maps.Marker({
+          position: { lat: location.latitude, lng: location.longitude },
+          map: mapInstanceRef.current,
+          title: location.name,
+          icon: {
+            url:
+              'data:image/svg+xml;charset=UTF-8,' +
+              encodeURIComponent(`
             <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
               <path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="${markerColor}"/>
               <circle cx="16" cy="16" r="8" fill="white"/>
               <text x="16" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">${icon}</text>
             </svg>
           `),
-          scaledSize: new window.google.maps.Size(32, 40),
-          anchor: new window.google.maps.Point(16, 40),
-        },
-      });
+            scaledSize: new window.google.maps.Size(32, 40),
+            anchor: new window.google.maps.Point(16, 40),
+          },
+        });
 
-      // Create info window
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: createInfoWindowContent(location),
-      });
+        // Create info window
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: createInfoWindowContent(location),
+        });
 
-      // Add click listener
-      marker.addListener('click', () => {
-        // 關閉目前打開的 InfoWindow
-        if (currentInfoWindowRef.current) {
-          currentInfoWindowRef.current.close();
-        }
+        // Add click listener
+        marker.addListener('click', () => {
+          // 關閉目前打開的 InfoWindow
+          if (currentInfoWindowRef.current) {
+            currentInfoWindowRef.current.close();
+          }
 
-        // 打開新的 InfoWindow
-        infoWindow.open(mapInstanceRef.current, marker);
+          // 打開新的 InfoWindow
+          infoWindow.open(mapInstanceRef.current, marker);
 
-        // 更新目前的 InfoWindow 參考
-        currentInfoWindowRef.current = infoWindow;
-      });
+          // 更新目前的 InfoWindow 參考
+          currentInfoWindowRef.current = infoWindow;
+        });
 
-      markersRef.current.push(marker);
-    });
+        markersRef.current.push(marker);
+        console.log('📌 Marker 已加入陣列，總數:', markersRef.current.length);
+      },
+      [locations, selectedIdol]
+    );
 
     // Adjust map bounds if we have markers
     if (filteredLocations.length > 0) {
@@ -275,13 +274,6 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
   return (
     <div>
-      <div className="mb-2 p-2 bg-green-100 text-green-800 text-sm">
-        ✅ Map Working! Locations: {locations.length}, Types:{' '}
-        {locations
-          .map((loc) => loc.typeName)
-          .filter(Boolean)
-          .join(', ') || 'none'}
-      </div>
       <div ref={mapRef} className={className} />
     </div>
   );

@@ -194,7 +194,7 @@ function formatLocationForMap(
     ).map((event) => ({
       id: event.id,
       title: event.title,
-      idol_name: event.idol?.stage_name || event.idol?.name || 'TBA',
+      idol_name: event.idol?.name || 'TBA',
       start_time:
         event.start_date && event.start_time
           ? new Date(`${event.start_date}T${event.start_time}`).toLocaleString(

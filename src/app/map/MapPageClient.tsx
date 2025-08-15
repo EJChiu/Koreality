@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import GoogleMap from '@/components/GoogleMap';
+import ClientOnlyGoogleMap from '@/components/ClientOnlyGoogleMap';
 import LocationFilter from '@/components/LocationFilter';
 import {
   getLocationsForMap,
@@ -234,25 +234,28 @@ const MapPage = () => {
 
   // 根據過濾器更新顯示的地點
   useEffect(() => {
+    console.log('🔍 篩選 Debug:', {
+      selectedFilters: selectedFilters,
+      selectedFiltersLength: selectedFilters.length,
+      allLocationsCount: allLocations.length,
+      firstLocationTypeName: allLocations[0]?.typeName,
+    });
     if (selectedFilters.length === 0) {
       // 沒有選擇過濾器，顯示所有地點
       setDisplayedLocations(allLocations);
     } else {
       // 根據過濾器篩選地點
-      const filtered = allLocations.filter((location) =>
-        selectedFilters.includes(location.typeName || 'other')
-      );
+      const filtered = allLocations.filter((location) => {
+        const typeName = location.typeName || 'other';
+        const isIncluded = selectedFilters.includes(typeName);
+        console.log(
+          `📍 地點 ${location.name}: typeName=${typeName}, 是否包含=${isIncluded}`
+        );
+        return isIncluded;
+      });
       setDisplayedLocations(filtered);
+      console.log('✅ 設置篩選後地點:', filtered.length);
     }
-
-    console.log(
-      '🔄 過濾後顯示地點數量:',
-      selectedFilters.length === 0
-        ? allLocations.length
-        : allLocations.filter((location) =>
-            selectedFilters.includes(location.typeName || 'other')
-          ).length
-    );
   }, [allLocations, selectedFilters]);
 
   // 其他處理函數
@@ -288,7 +291,7 @@ const MapPage = () => {
     if (selectedIdol) {
       return {
         image: selectedIdol.profile_image,
-        title: selectedIdol.stage_name || selectedIdol.name,
+        title: selectedIdol.name,
         subtitle: '個人活動地圖',
       };
     }
@@ -302,7 +305,7 @@ const MapPage = () => {
 
   const getSelectedIdolName = () => {
     if (selectedIdol) {
-      return selectedIdol.stage_name || selectedIdol.name;
+      return selectedIdol.name;
     }
     if (selectedMember) {
       return selectedMember.name;
@@ -322,8 +325,6 @@ const MapPage = () => {
     selectedFilters: selectedFilters,
     types: [...new Set(allLocations.map((l) => l.typeName).filter(Boolean))],
   };
-
-  console.log('🐛 Debug Info:', debugInfo);
 
   if (loading) {
     return (
@@ -396,16 +397,14 @@ const MapPage = () => {
           </div>
         ) : (
           <>
-            {/* Debug 資訊 */}
-            <div className="absolute top-32 left-4 z-10 bg-green-100 text-green-800 text-xs p-2 rounded max-w-sm">
+            <div className="absolute top-20 left-60 z-10 bg-green-100 text-green-800 text-xs p-2 rounded max-w-sm">
               <div>✅ 地點載入完成！</div>
               <div>總地點: {allLocations.length}</div>
               <div>顯示地點: {displayedLocations.length}</div>
               <div>過濾器: [{selectedFilters.join(', ') || '無'}]</div>
               <div>類型: [{debugInfo.types.join(', ') || '無'}]</div>
             </div>
-
-            <GoogleMap
+            <ClientOnlyGoogleMap
               locations={displayedLocations}
               selectedIdol={getSelectedIdolName()}
               className="w-full h-full min-h-screen"

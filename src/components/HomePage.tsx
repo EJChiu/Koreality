@@ -27,7 +27,6 @@ import { useRouter } from 'next/navigation';
 interface IdolData {
   id: string;
   name: string;
-  display_name?: string;
   stage_name: string;
   profile_image: string;
   birthday: string;
@@ -45,7 +44,6 @@ interface SoloArtist {
 interface Band {
   id: string;
   name: string;
-  display_name?: string;
   logo?: string;
   group_image?: string;
   description?: string;
@@ -55,7 +53,6 @@ interface Band {
 interface BandMember {
   id: string;
   name: string;
-  display_name?: string;
   stage_name: string;
   profile_image: string;
 }
@@ -197,7 +194,6 @@ const HomePage = () => {
         const formattedIdols: IdolData[] = upcomingBirthdays.map((idol) => ({
           id: idol.id,
           name: idol.name,
-          display_name: idol.display_name,
           stage_name: idol.stage_name || idol.name,
           profile_image: idol.profile_image || '/api/placeholder/60/60',
           birthday: formatBirthday(idol.birthday),
@@ -254,7 +250,7 @@ const HomePage = () => {
   const handleIdolClick = (idol: IdolData): void => {
     const idolData = {
       id: idol.id,
-      name: idol.display_name || idol.name,
+      name: idol.name,
       stage_name: idol.stage_name,
       profile_image: idol.profile_image,
     };
@@ -291,7 +287,7 @@ const HomePage = () => {
       JSON.stringify({
         type: 'group',
         id: band.id,
-        name: band.display_name || band.name,
+        name: band.name,
         logo: band.logo,
         members: bandMembers[band.id] || [],
       })
@@ -304,11 +300,11 @@ const HomePage = () => {
       JSON.stringify({
         type: 'member',
         id: member.id,
-        name: member.display_name || member.name,
+        name: member.name,
         image: member.profile_image,
         group: {
           id: band.id,
-          name: band.display_name || band.name,
+          name: band.name,
         },
       })
     );
@@ -419,9 +415,7 @@ const HomePage = () => {
                     )}
                 </div>
                 <div className="text-xs">
-                  <div className="font-medium text-gray-800">
-                    {idol.display_name || idol.name}
-                  </div>
+                  <div className="font-medium text-gray-800">{idol.name}</div>
                   <div className="text-gray-500">{idol.birthday}</div>
                 </div>
               </div>
@@ -505,9 +499,7 @@ const HomePage = () => {
                         e.currentTarget.src = '/api/placeholder/60/60';
                       }}
                     />
-                    <span className="font-bold text-gray-900">
-                      {band.display_name || band.name}
-                    </span>
+                    <span className="font-bold text-gray-900">{band.name}</span>
                   </button>
 
                   {/* 展開的成員區域 */}
@@ -568,9 +560,7 @@ const HomePage = () => {
                                 }}
                               />
                               <span className="text-xs font-medium text-gray-800">
-                                {member.display_name ||
-                                  member.stage_name ||
-                                  member.name}
+                                {member.name}
                               </span>
                             </div>
                           ))
